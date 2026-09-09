@@ -1,6 +1,18 @@
 use std::ops::Drop;
+use std::ffi::*;
 use std::io;
 use std::io::Write;
+
+unsafe extern "C" {
+	fn ioctl_get_term_size(width: *mut c_int, height: *mut c_int) -> c_int;
+}
+
+fn get_term_size() -> (usize,usize){
+	let mut width: c_int = 25;
+	let mut height: c_int = 10;
+	unsafe {ioctl_get_term_size(&mut width, &mut height)};
+	(width as usize,height as usize)
+}
 
 pub struct TemporaryOutput {
 	line_buffer: Vec<String>,
@@ -43,10 +55,18 @@ impl TemporaryOutput {
 		//====== actually draw to terminal ======
 		//make space
 		print!("{}","\x1bM\x1b[2K".repeat(old_line_count));
+		let (terminal_width,_) = get_term_size();
 		//print the text again
 		self.line_buffer
 			.iter()
-			.for_each(|line| println!("{}",line));
+			.for_each(|line|{
+				println!("{}",line
+					.replace('\t',"    ")//tabs can have inconsistent width so fix that
+					.chars()
+					.take(terminal_width)
+					.collect::<String>()
+				)
+			});
 		//flush stdout
 		let _ = io::stdout().flush();
 	}
