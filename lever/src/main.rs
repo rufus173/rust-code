@@ -222,7 +222,7 @@ fn compile(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 			continue;
 		};
 		//load the leverfile
-		println!("----> Compiling {}",package);
+		println!("----> Compiling {:?}",package);
 		let leverfile = match database.get_package_leverfile(&package) {
 			Ok(lf) => lf,
 			Err(error) => {
@@ -244,7 +244,8 @@ fn compile(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 				return Err(());
 			}
 		};
-		println!("----> Compiled {:?} without errors.\n",package);
+		print!("\x1bM\x1b[2K");//replace the previous compiling text
+		println!("----> Compiled {:?} without errors.",package);
 		//log that it has been compiled
 		if let Ok(_) = database.add_compiled(&package) {
 			let _ = database.save();
@@ -274,9 +275,9 @@ fn install(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 		};
 		install_tree.dependencies.push(packge_dependency_tree);
 	}
-	println!("=== Dependency graph ===");
 	//TODO: remove duplicates
-	let install_queue = install_tree.flatten();
+	let mut install_queue = install_tree.flatten();
+	install_queue.pop(); //remove "Selected Packages" as it is only used to make the tree look nice
 	//====== install selected packages ======
 	for package in install_queue {
 		//get the leverfile path
@@ -285,6 +286,7 @@ fn install(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 			eprintln!("Could not find package {package:?}, skipping");
 			continue;
 		};
+		println!("\n------------ {} ------------",package);
 		install_tree.print(Some(&package));
 		//compile if not already compiled
 		//if let None = database.compiled_packages()
@@ -294,7 +296,7 @@ fn install(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 		//		let _ = compile(vec![package.clone()],config,database)?;
 		//}
 		compile(vec![package.clone()],config,database)?;
-		println!("----> Installing {}",package);
+		println!("----> Installing {:?}",package);
 		//load the leverfile
 		let Ok(leverfile) = LeverFile::load(&leverfile_path) else {
 			eprintln!("Loading leverfile at {leverfile_path:?} failed.");
@@ -314,12 +316,14 @@ fn install(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 				return Err(());
 			}
 		};
-		println!("----> Installed {:?} without errors.\n",package);
+		print!("\x1bM\x1b[2K");//replace the previous compiling text
+		println!("----> Installed {:?} without errors.",package);
 		//track that the package has now been installed
 		if let Ok(_) = database.add_installed(&package) {
 			let _ = database.save();
 		}
 	}
+	println!("\n----> All packages installed successfully");
 	//TODO: handle git clone if path to leverfile provided
 	Ok(())
 }
