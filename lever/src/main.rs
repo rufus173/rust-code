@@ -1,10 +1,12 @@
 mod leverfile;
+mod terminal;
 mod database;
 
 use std::process::Command;
+use terminal::TemporaryOutput;
 use leverfile::{LeverFile,LEVERFILE_DEFAULT_NAME};
 use std::path::{Path,PathBuf};
-use database::LeverDB;
+use database::{LeverDB,PackageTreeNode};
 use std::env;
 use std::process::exit;
 use std::fs::read_to_string;
@@ -257,6 +259,24 @@ fn install(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 		let mut all_installed_packages = database.installed_packages();
 		install_queue.append(&mut all_installed_packages);
 	}
+	//====== generate dependency tree ======
+	let mut install_tree = PackageTreeNode {
+		dependencies: vec![],
+		name: String::from("Selected Packages"),
+	};
+	for package in install_queue {
+		let packge_dependency_tree = match database.generate_package_dependency_tree(&package){
+			Ok(tree) => tree,
+			Err(e) => {
+				eprintln!("Error finding dependencies for \"{package}\": {e}");
+				return Err(());
+			}
+		};
+		install_tree.dependencies.push(packge_dependency_tree);
+	}
+	println!("=== Dependency graph ===");
+	//TODO: remove duplicates
+	let install_queue = install_tree.flatten();
 	//====== install selected packages ======
 	for package in install_queue {
 		//get the leverfile path
@@ -265,13 +285,15 @@ fn install(targets: Vec<String>, config: &Config, database: &mut LeverDB) -> Res
 			eprintln!("Could not find package {package:?}, skipping");
 			continue;
 		};
+		install_tree.print(Some(&package));
 		//compile if not already compiled
-		if let None = database.compiled_packages()
-			.into_iter()
-			.find(|name| *name == package){
-				println!("----> {package:?} Not already compiled, compiling.");
-				let _ = compile(vec![package.clone()],config,database)?;
-		}
+		//if let None = database.compiled_packages()
+		//	.into_iter()
+		//	.find(|name| *name == package){
+		//		println!("----> {package:?} Not already compiled, compiling.");
+		//		let _ = compile(vec![package.clone()],config,database)?;
+		//}
+		compile(vec![package.clone()],config,database)?;
 		println!("----> Installing {}",package);
 		//load the leverfile
 		let Ok(leverfile) = LeverFile::load(&leverfile_path) else {

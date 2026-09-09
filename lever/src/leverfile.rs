@@ -1,4 +1,5 @@
 use std::path::{PathBuf,Path};
+use terminal::TemporaryOutput;
 use std::path;
 use std::process::{Stdio,Command};
 use std::io::Read;
@@ -122,8 +123,9 @@ impl LeverFile {
 }
 
 fn run_commands<T: AsRef<Path>>(commands: Vec<String>, execution_dir: T) -> io::Result<()>{
+	let mut temp_output = TemporaryOutput::new(8);
 	for command in commands {
-		println!("> {command}");
+		temp_output.println(format!("> {command}"));
 		//start a shell to execute each line
 		let mut child = Command::new("sh")
 			.arg("-c")
@@ -145,7 +147,7 @@ fn run_commands<T: AsRef<Path>>(commands: Vec<String>, execution_dir: T) -> io::
 				for byte in &stdout_buffer[..count] {
 					let ch = char::from(*byte);
 					if ch == '\n' {
-						println!("==> {}",line_buffer);
+						temp_output.println(format!("==> {}",line_buffer));
 						line_buffer.truncate(0);
 					}else {
 						line_buffer.push(ch);
@@ -165,7 +167,7 @@ fn run_commands<T: AsRef<Path>>(commands: Vec<String>, execution_dir: T) -> io::
 				for byte in &stderr_buffer[..count] {
 					let ch = char::from(*byte);
 					if ch == '\n' {
-						println!("-e-> {}",line_buffer);
+						temp_output.println(format!("-e-> {}",line_buffer));
 						line_buffer.truncate(0);
 					}else {
 						line_buffer.push(ch);
@@ -183,5 +185,6 @@ fn run_commands<T: AsRef<Path>>(commands: Vec<String>, execution_dir: T) -> io::
 			return Err(io::Error::other("Command Failed"))
 		}
 	}
+	temp_output.clear();
 	Ok(())
 }

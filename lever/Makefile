@@ -1,3 +1,3 @@
 CFLAGS=-g
-lever : main.rs leverfile.rs database.rs
-	rustc $(CFLAGS) main.rs -o $@ $(LIBS)
+lever : src/main.rs src/leverfile.rs src/database.rs src/terminal.rs
+	rustc $(CFLAGS) src/main.rs -o $@ $(LIBS)

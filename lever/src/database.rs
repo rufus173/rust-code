@@ -14,8 +14,8 @@ pub struct LeverDB {
 	pub db_path: PathBuf,
 }
 pub struct PackageTreeNode {
-	dependencies: Vec<PackageTreeNode>,
-	name: String,
+	pub dependencies: Vec<PackageTreeNode>,
+	pub name: String,
 }
 
 impl LeverDB {
@@ -143,7 +143,7 @@ impl LeverDB {
 		let name = name.as_ref();
 		let Some(leverfile_path) = self.get_package_location(name)
 		else {
-			return Err(io::Error::other("Package \"{name}\" not known to lever"));
+			return Err(io::Error::other(format!("Package \"{name}\" not known to lever")));
 		};
 		LeverFile::load(&leverfile_path)
 	}
@@ -172,7 +172,37 @@ impl PackageTreeNode {
 			for dependency in &self.dependencies {
 				result.append(&mut dependency.flatten())
 			}
+			result.push(self.name.clone());
 			result
+		}
+	}
+	pub fn print(&self, highlight_package: Option<&str>){
+		//just a wrapper to make it nicer to call
+		self.print_recursive(String::new(),highlight_package);
+	}
+	pub fn print_recursive(&self, indent: String, highlight_package: Option<&str>){
+		//check if node is hilighted
+		let highlight = highlight_package.map(|n| n == self.name);
+		let start_escape_sequence = if let Some(true) = highlight {
+			"\x1b[32m"
+		}else {
+			""
+		};
+		//print current node
+		print!("{}",indent);
+		print!("{}",start_escape_sequence);
+		print!("{}",self.name);
+		println!("\x1b[39m");
+		//recursive step to dependencies
+		for (i,dependency) in self.dependencies.iter().enumerate() {
+			//this works because... uhhhh... i just had an intuition and it worked?
+			let new_indent = indent
+				.replace("└"," ")
+				.replace("─"," ")
+				.replace("├","│")
+				+ if i == self.dependencies.len()-1 {"└"} else {"├"}
+				+ "─";
+			dependency.print_recursive(new_indent,highlight_package);
 		}
 	}
 }
